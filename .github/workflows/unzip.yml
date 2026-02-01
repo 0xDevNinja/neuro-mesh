@@ -1,9 +1,11 @@
 name: Unzip repository
+
 on:
   push:
     branches:
       - main
-  jobs:
+
+jobs:
   unzip:
     runs-on: ubuntu-latest
     steps:
@@ -18,7 +20,7 @@ on:
         mkdir unzipped_repo
         unzip -o neuro_mesh_repo.zip -d unzipped_repo
         rm neuro_mesh_repo.zip
-        cp -r unzipped_repo/. ./
+        cp -r unzipped_repo/. .
     - name: Commit unzipped content
       run: |
         git config user.name "github-actions"
