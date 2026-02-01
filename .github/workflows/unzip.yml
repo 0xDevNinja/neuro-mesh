@@ -3,7 +3,7 @@ on:
   push:
     branches:
       - main
- obs:
+  jobs:
   unzip:
     runs-on: ubuntu-latest
     steps:
