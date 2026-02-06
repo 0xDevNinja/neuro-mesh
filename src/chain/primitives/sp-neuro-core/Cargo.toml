@@ -1,0 +1,16 @@
+[package]
+name = "sp-neuro-core"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[dependencies]
+parity-scale-codec = { version = "3.6.9", default-features = false, features = ["derive"] }
+sp-std = { version = "6.0.0", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+    "parity-scale-codec/std",
+    "sp-std/std",
+]
