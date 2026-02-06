@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "src/chain",
+    "src/chain/primitives/sp-neuro-core",
+    "src/node",
+    "src/sdk/rust"
+]
+
+resolver = "2"
