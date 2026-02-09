@@ -1,0 +1,12 @@
+# Placeholder Foundry configuration for smart contracts (if any).
+
+[default]
+src = "contracts"
+out = "out"
+cache_path = "cache"
+
+solc_version = "0.8.18"
+
+# Additional configuration will be added once smart contract modules
+# are defined.  See the backlog for planned on‑chain governance and
+# bonding mechanisms.

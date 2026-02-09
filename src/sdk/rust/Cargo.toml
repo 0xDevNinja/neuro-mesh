@@ -1,0 +1,16 @@
+[package]
+name = "neurochain-sdk"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "neurochain_sdk"
+path = "src/lib.rs"
+
+[dependencies]
+sp-core = { version = "6.0.0", default-features = false }
+sp-runtime = { version = "6.0.0", default-features = false }
+sp-keyring = { version = "6.0.0", default-features = false }
+jsonrpsee = { version = "0.16.0", features = ["ws-client", "http-client"] }
+
+# Additional dependencies will be added as the SDK evolves.

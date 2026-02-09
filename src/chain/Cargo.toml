@@ -1,0 +1,14 @@
+[package]
+name = "neurochain"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "neurochain"
+path = "src/lib.rs"
+
+# TODO: Add substrate dependencies once the runtime is fleshed out.
+
+[dependencies]
+# Substrate and FRAME crates will be added as needed.
+sp-std = { version = "6.0.0", default-features = false }

@@ -1,0 +1,150 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -Dwarnings
+
+jobs:
+  # Rust checks
+  rust:
+    name: Rust (${{ matrix.rust-toolchain }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust-toolchain: [stable]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-action@stable
+        with:
+          toolchain: ${{ matrix.rust-toolchain }}
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features
+
+      - name: Build
+        run: cargo build --all-targets
+
+      - name: Test
+        run: cargo test --all
+
+  # Python checks
+  python:
+    name: Python (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install black flake8 pytest pytest-cov
+          pip install -r src/miner/requirements.txt
+          pip install -r src/validator/requirements.txt
+          pip install -r src/sdk/python/requirements.txt
+
+      - name: Check formatting with black
+        run: black --check src/miner src/validator src/sdk/python
+
+      - name: Lint with flake8
+        run: flake8 src/miner src/validator src/sdk/python --max-line-length=120
+
+      - name: Run miner tests
+        run: pytest src/miner/tests -v
+
+      - name: Run validator tests
+        run: pytest src/validator/tests -v
+
+      - name: Run SDK tests
+        run: pytest src/sdk/python/neurochain_sdk/tests -v
+
+  # TypeScript checks
+  typescript:
+    name: TypeScript (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ["18.x", "20.x"]
+    defaults:
+      run:
+        working-directory: src/aggregator
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: src/aggregator/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check || true
+
+      - name: Lint
+        run: npm run lint || true
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+  # Security scanning
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+  # All checks passed
+  ci-success:
+    name: CI Success
+    needs: [rust, python, typescript]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check all jobs
+        run: |
+          if [[ "${{ needs.rust.result }}" == "success" && \
+                "${{ needs.python.result }}" == "success" && \
+                "${{ needs.typescript.result }}" == "success" ]]; then
+            echo "All CI checks passed!"
+            exit 0
+          else
+            echo "Some CI checks failed"
+            exit 1
+          fi

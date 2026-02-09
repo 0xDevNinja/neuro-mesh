@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "src/chain",
+    "src/node",
+    "src/sdk/rust"
+]
+
+resolver = "2"

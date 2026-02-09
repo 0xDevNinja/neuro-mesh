@@ -1,0 +1,12 @@
+[package]
+name = "neurochain-node"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+libp2p = { version = "0.51", default-features = false, features = ["tcp", "websocket", "noise", "mplex", "yamux", "mdns"] }
+async-std = { version = "1", features = ["attributes"] }
+tonic = { version = "0.9", features = ["transport"] }
+tokio = { version = "1", features = ["macros", "rt"] }
+
+# TODO: add dependencies for gRPC, HTTP, and metrics once implemented.
