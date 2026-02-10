@@ -1,0 +1,45 @@
+[package]
+name = "pallet-subnet-registry"
+version = "0.1.0"
+authors = ["NeuroMesh Team"]
+edition = "2021"
+license = "MIT"
+description = "Subnet Registry Pallet for NeuroChain"
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.9", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+
+# Substrate dependencies - using compatible versions
+# Note: Update these versions to match your runtime's substrate version
+frame-support = { version = "28.0.0", default-features = false }
+frame-system = { version = "28.0.0", default-features = false }
+sp-runtime = { version = "31.0.0", default-features = false }
+sp-std = { version = "14.0.0", default-features = false }
+sp-core = { version = "28.0.0", default-features = false }
+sp-io = { version = "30.0.0", default-features = false }
+
+[dev-dependencies]
+sp-io = { version = "30.0.0" }
+pallet-balances = { version = "28.0.0" }
+
+[features]
+default = ["std"]
+std = [
+    "codec/std",
+    "scale-info/std",
+    "frame-support/std",
+    "frame-system/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "sp-core/std",
+    "sp-io/std",
+]
+try-runtime = ["frame-support/try-runtime"]
+runtime-benchmarks = [
+    "frame-support/runtime-benchmarks",
+    "frame-system/runtime-benchmarks",
+]
