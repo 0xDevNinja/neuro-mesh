@@ -28,7 +28,7 @@ This document provides a comprehensive overview of all planned features, enhance
 | Field | Value |
 |-------|-------|
 | **Priority** | P0 |
-| **Status** | Open |
+| **Status** | Done |
 | **Area** | `core` |
 | **Type** | Feature |
 
@@ -36,10 +36,10 @@ This document provides a comprehensive overview of all planned features, enhance
 Scaffold a new Substrate runtime with basic pallets for balances, staking, extrinsics, and a custom `neurochain` pallet. This forms the foundation of the entire protocol.
 
 **Acceptance Criteria:**
-- [ ] Compilable Rust crate that runs with `cargo run`
-- [ ] Includes placeholder pallets for balances, staking, and neurochain
-- [ ] Unit tests for basic functionality
-- [ ] Documentation for pallet structure
+- [x] Compilable Rust crate that runs with `cargo run`
+- [x] Includes placeholder pallets for balances, staking, and neurochain
+- [x] Unit tests for basic functionality
+- [x] Documentation for pallet structure
 
 **Technical Notes:**
 - Use Substrate FRAME framework
@@ -52,7 +52,7 @@ Scaffold a new Substrate runtime with basic pallets for balances, staking, extri
 | Field | Value |
 |-------|-------|
 | **Priority** | P0 |
-| **Status** | Open |
+| **Status** | Done |
 | **Area** | `core` |
 | **Type** | Feature |
 
@@ -60,10 +60,10 @@ Scaffold a new Substrate runtime with basic pallets for balances, staking, extri
 Implement a pallet to store subnet definitions including ID, task type, schemas, evaluation spec, emission weights, staking thresholds, and owner.
 
 **Acceptance Criteria:**
-- [ ] Extrinsics to create, update, and retire subnets
-- [ ] On-chain state accessible via RPC
-- [ ] Storage optimization for subnet metadata
-- [ ] Events emitted for state changes
+- [x] Extrinsics to create, update, and retire subnets
+- [x] On-chain state accessible via RPC
+- [x] Storage optimization for subnet metadata
+- [x] Events emitted for state changes
 
 **Schema:**
 ```rust
@@ -633,7 +633,7 @@ Produce step-by-step instructions for running a miner or validator on testnet.
 
 | Priority | Total | Open | In Progress | Done |
 |----------|-------|------|-------------|------|
-| P0 | 7 | 5 | 2 | 0 |
+| P0 | 7 | 3 | 2 | 2 |
 | P1 | 9 | 7 | 2 | 0 |
 | P2 | 5 | 5 | 0 | 0 |
 | P3 | 1 | 1 | 0 | 0 |
@@ -642,7 +642,7 @@ Produce step-by-step instructions for running a miner or validator on testnet.
 
 | Area | Total | Open | In Progress | Done |
 |------|-------|------|-------------|------|
-| Core | 4 | 4 | 0 | 0 |
+| Core | 4 | 2 | 0 | 2 |
 | Consensus | 4 | 4 | 0 | 0 |
 | Node | 4 | 2 | 2 | 0 |
 | API | 3 | 2 | 1 | 0 |
@@ -685,4 +685,4 @@ Produce step-by-step instructions for running a miner or validator on testnet.
 
 ---
 
-*Last updated: 2026-02-09*
+*Last updated: 2026-03-11*

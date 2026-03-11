@@ -1,8 +1,7 @@
 [workspace]
 members = [
-    "src/chain",
-    "src/node",
-    "src/sdk/rust"
+    "src/chain/pallets/subnet-registry",
+    "src/chain/primitives/sp-neuro-core",
 ]
 
 resolver = "2"

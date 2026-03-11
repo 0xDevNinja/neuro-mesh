@@ -1,0 +1,16 @@
+[package]
+name = "sp-neuro-core"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+parity-scale-codec = { version = "3.6.9", default-features = false, features = ["derive"] }
+sp-std = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-stable2409-1", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+    "parity-scale-codec/std",
+    "sp-std/std",
+]

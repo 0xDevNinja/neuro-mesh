@@ -5,8 +5,6 @@
 [![CI](https://github.com/0xDevNinja/neuro-mesh/actions/workflows/ci.yml/badge.svg)](https://github.com/0xDevNinja/neuro-mesh/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
-[![TypeScript](https://img.shields.io/badge/typescript-5.0%2B-blue.svg)](https://www.typescriptlang.org/)
 
 **A Peer-to-Peer Intelligence Marketplace**
 
@@ -58,93 +56,37 @@ The system is designed around a permissionless appchain (NeuroChain), specialize
     └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Core Components
-
-| Component | Language | Description |
-|-----------|----------|-------------|
-| **NeuroChain** | Rust (Substrate) | Application-specific blockchain storing global state: accounts, subnets, registrations, weights, and emissions |
-| **Node** | Rust | libp2p networking layer for peer discovery and communication |
-| **Miner** | Python | Reference client hosting AI models and serving inference requests |
-| **Validator** | Python | Reference client sampling miners, scoring outputs, and submitting weight vectors |
-| **Aggregator** | TypeScript | Public API service routing queries to top-ranked miners |
-| **SDK** | Rust & Python | Client libraries for chain interaction |
-
 ## Project Structure
 
 ```
 neuro-mesh/
 ├── src/
-│   ├── chain/                    # Substrate Runtime (Rust)
-│   │   ├── src/
-│   │   │   ├── lib.rs           # Runtime configuration
-│   │   │   └── pallets/         # FRAME pallets
-│   │   │       └── mod.rs       # Pallet definitions
-│   │   ├── Cargo.toml
-│   │   └── README.md
-│   │
-│   ├── node/                     # P2P Networking Layer (Rust)
-│   │   ├── src/
-│   │   │   └── lib.rs           # libp2p implementation
-│   │   ├── Cargo.toml
-│   │   └── README.md
-│   │
-│   ├── miner/                    # Reference Miner Client (Python)
-│   │   ├── miner.py             # Main miner implementation
-│   │   ├── tests/
-│   │   │   └── test_miner.py
-│   │   ├── Dockerfile
-│   │   ├── requirements.txt
-│   │   └── README.md
-│   │
-│   ├── validator/                # Reference Validator Client (Python)
-│   │   ├── validator.py         # Main validator implementation
-│   │   ├── tests/
-│   │   │   └── test_validator.py
-│   │   ├── requirements.txt
-│   │   └── README.md
-│   │
-│   ├── aggregator/               # Public API Service (TypeScript)
-│   │   ├── src/
-│   │   │   └── index.ts         # Express API server
-│   │   ├── tests/
-│   │   │   └── index.test.ts
-│   │   ├── Dockerfile
-│   │   ├── package.json
-│   │   └── tsconfig.json
-│   │
-│   └── sdk/                      # Client SDKs
-│       ├── rust/
-│       │   ├── src/
-│       │   │   ├── lib.rs
-│       │   │   └── client.rs
-│       │   ├── tests/
-│       │   └── Cargo.toml
-│       └── python/
-│           ├── neurochain_sdk/
-│           │   ├── __init__.py
-│           │   ├── client.py
-│           │   └── tests/
-│           └── requirements.txt
+│   └── chain/                      # NeuroChain (Substrate)
+│       ├── src/
+│       │   └── runtime.rs          # Runtime configuration
+│       ├── pallets/
+│       │   └── subnet-registry/    # Subnet Registry pallet (CORE-002)
+│       │       ├── lib.rs
+│       │       └── Cargo.toml
+│       └── primitives/
+│           └── sp-neuro-core/      # Core primitives & types
+│               ├── src/lib.rs
+│               └── Cargo.toml
 │
 ├── docs/
-│   ├── architecture.md           # Technical architecture
-│   ├── backlog.md               # Planned features and issues
-│   └── CONTRIBUTING.md          # Contribution guidelines
-│
-├── scripts/
-│   ├── docker-compose.yml       # Container orchestration
-│   └── run_tests.sh             # Test runner script
+│   ├── architecture.md             # Technical architecture
+│   ├── backlog.md                  # Planned features and issues
+│   └── CONTRIBUTING.md             # Contribution guidelines
 │
 ├── .github/
 │   └── workflows/
-│       └── ci.yml               # GitHub Actions CI pipeline
+│       └── ci.yml                  # GitHub Actions CI pipeline
 │
-├── Cargo.toml                   # Rust workspace configuration
-├── foundry.toml                 # Foundry configuration
+├── Cargo.toml                      # Rust workspace configuration
 ├── .gitignore
-├── ISSUES.md                    # Issue tracking
-├── SECURITY.md                  # Security policy
-└── README.md                    # This file
+├── ISSUES.md                       # Issue tracking
+├── SECURITY.md                     # Security policy
+└── README.md                       # This file
 ```
 
 ## Getting Started
@@ -152,9 +94,6 @@ neuro-mesh/
 ### Prerequisites
 
 - **Rust** 1.75+ with `cargo`
-- **Python** 3.10+ with `pip`
-- **Node.js** 18+ with `npm`
-- **Docker** (optional, for containerized deployment)
 
 ### Installation
 
@@ -166,89 +105,35 @@ cd neuro-mesh
 # Install Rust toolchain
 rustup toolchain install stable
 rustup default stable
-
-# Install Python dependencies
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r src/miner/requirements.txt
-pip install -r src/validator/requirements.txt
-
-# Install Node.js dependencies
-cd src/aggregator && npm install && cd ../..
 ```
 
-### Quick Start
-
-**1. Start a Miner**
-```bash
-cd src/miner
-python miner.py --host 0.0.0.0 --port 5000
-```
-
-**2. Start a Validator**
-```bash
-cd src/validator
-python validator.py --miners 127.0.0.1:5000 --query "What is 2+2?"
-```
-
-**3. Start the Aggregator**
-```bash
-cd src/aggregator
-npm run build && npm start
-```
-
-**4. Query the API**
-```bash
-curl -X POST http://localhost:3000/v1/subnets/1/query \
-  -H "Content-Type: application/json" \
-  -d '{"input": "Hello, NeuroMesh!"}'
-```
-
-### Docker Deployment
+### Building & Testing
 
 ```bash
-cd scripts
-docker-compose up -d
-```
+# Build all workspace crates
+cargo build --all-targets
 
-## Development
-
-### Building
-
-```bash
-# Build Rust components
-cargo build --release
-
-# Build TypeScript aggregator
-cd src/aggregator && npm run build
-```
-
-### Testing
-
-```bash
 # Run all tests
-bash scripts/run_tests.sh
-
-# Run Rust tests
 cargo test --all
 
-# Run Python tests
-pytest src/miner/tests src/validator/tests
+# Check formatting
+cargo fmt --all -- --check
 
-# Run TypeScript tests
-cd src/aggregator && npm test
+# Lint
+cargo clippy --all-targets --all-features
 ```
 
-### Code Quality
+## Current Status
 
-| Tool | Language | Purpose |
-|------|----------|---------|
-| `rustfmt` | Rust | Code formatting |
-| `clippy` | Rust | Linting |
-| `black` | Python | Code formatting |
-| `flake8` | Python | Linting |
-| `prettier` | TypeScript | Code formatting |
-| `eslint` | TypeScript | Linting |
+| Component | Status | Description |
+|-----------|--------|-------------|
+| **Runtime Skeleton** (CORE-001) | Done | Basic Substrate runtime configuration |
+| **Subnet Registry** (CORE-002) | Done | Pallet for subnet definitions, create/update/retire extrinsics |
+| **Core Primitives** | Done | `sp-neuro-core` types and helpers |
+| **Miner/Validator Registry** (CORE-003) | Next | Registration logic, UID allocation, stake deposits |
+| **Emissions Pallet** (CORE-004) | Planned | Reward distribution per epoch |
+
+See [ISSUES.md](ISSUES.md) for the full backlog.
 
 ## Documentation
 
