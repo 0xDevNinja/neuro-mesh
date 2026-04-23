@@ -22,6 +22,12 @@ pub mod pallet {
     /// EMA smoothing factor alpha. rep_new = alpha * rep_old + (1 - alpha) * sim.
     /// Expressed as ppm out of COSINE_SCALE.
     pub const REPUTATION_ALPHA_PPM: u32 = 800_000;
+    /// Cosine threshold (ppm of COSINE_SCALE) above which two validators are
+    /// flagged as suspiciously correlated (possible collusion / cartel).
+    pub const COLLUSION_THRESHOLD_PPM: u32 = 950_000;
+    /// Reputation penalty applied to each member of a flagged collusion cluster,
+    /// in ppm of COSINE_SCALE.
+    pub const COLLUSION_PENALTY_PPM: u32 = 100_000;
 
     pub type SubnetId = u32;
     pub type Uid = u32;
@@ -145,6 +151,20 @@ pub mod pallet {
             old_reputation: u32,
             new_reputation: u32,
             similarity: u32,
+        },
+        /// Potential collusion cluster detected: all listed validators produced
+        /// pairwise-correlated weight vectors above COLLUSION_THRESHOLD_PPM.
+        CollusionDetected {
+            subnet_id: SubnetId,
+            epoch: EpochIndex,
+            members: Vec<Uid>,
+        },
+        /// Reputation penalty applied to a cluster member.
+        CollusionPenaltyApplied {
+            subnet_id: SubnetId,
+            validator_uid: Uid,
+            reputation_before: u32,
+            reputation_after: u32,
         },
     }
 
@@ -282,6 +302,31 @@ pub mod pallet {
                 });
             }
 
+            // Collusion detection on the raw submitted vectors.
+            let pairs: Vec<(Uid, SparseWeights)> = decoded
+                .iter()
+                .map(|(uid, sw, _)| (*uid, sw.clone()))
+                .collect();
+            let clusters = detect_collusion_clusters(&pairs);
+            for cluster in &clusters {
+                Self::deposit_event(Event::CollusionDetected {
+                    subnet_id,
+                    epoch,
+                    members: cluster.clone(),
+                });
+                for uid in cluster {
+                    let before = Reputation::<T>::get(subnet_id, *uid);
+                    let after = before.saturating_sub(COLLUSION_PENALTY_PPM);
+                    Reputation::<T>::insert(subnet_id, *uid, after);
+                    Self::deposit_event(Event::CollusionPenaltyApplied {
+                        subnet_id,
+                        validator_uid: *uid,
+                        reputation_before: before,
+                        reputation_after: after,
+                    });
+                }
+            }
+
             EpochFinalized::<T>::insert(subnet_id, epoch, true);
             Self::deposit_event(Event::EpochFinalized {
                 subnet_id,
@@ -301,6 +346,45 @@ pub mod pallet {
             + one_minus.saturating_mul(similarity as u64))
             / COSINE_SCALE as u64;
         blended as u32
+    }
+
+    /// Union-find cluster detector. Connects any two validators whose pairwise
+    /// cosine similarity exceeds `COLLUSION_THRESHOLD_PPM`. Returns clusters of
+    /// size >= 2 with each inner vec sorted by uid.
+    pub fn detect_collusion_clusters(vectors: &[(Uid, SparseWeights)]) -> Vec<Vec<Uid>> {
+        use sp_std::collections::btree_map::BTreeMap;
+        let n = vectors.len();
+        if n < 2 {
+            return Vec::new();
+        }
+        let mut parent: Vec<usize> = (0..n).collect();
+        fn find(parent: &mut [usize], i: usize) -> usize {
+            if parent[i] == i {
+                i
+            } else {
+                let r = find(parent, parent[i]);
+                parent[i] = r;
+                r
+            }
+        }
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let sim = vectors[i].1.cosine_similarity(&vectors[j].1);
+                if sim > COLLUSION_THRESHOLD_PPM {
+                    let a = find(&mut parent, i);
+                    let b = find(&mut parent, j);
+                    if a != b {
+                        parent[a] = b;
+                    }
+                }
+            }
+        }
+        let mut groups: BTreeMap<usize, Vec<Uid>> = BTreeMap::new();
+        for (i, (uid, _)) in vectors.iter().enumerate() {
+            let r = find(&mut parent, i);
+            groups.entry(r).or_default().push(*uid);
+        }
+        groups.into_values().filter(|g| g.len() >= 2).collect()
     }
 
     impl<T: Config> Pallet<T> {
@@ -585,7 +669,8 @@ mod tests {
     #[test]
     fn finalize_rewards_agreement_over_outlier() {
         new_test_ext().execute_with(|| {
-            // v0 and v1 agree; v2 is an outlier.
+            // v0 and v1 agree broadly but not identically (to avoid collusion
+            // penalty); v2 is a full outlier.
             assert_ok!(Consensus::submit_weights(
                 RuntimeOrigin::signed(1),
                 1,
@@ -596,7 +681,7 @@ mod tests {
                 RuntimeOrigin::signed(2),
                 1,
                 1,
-                vec![(0, 100)]
+                vec![(0, 100), (1, 50)]
             ));
             assert_ok!(Consensus::submit_weights(
                 RuntimeOrigin::signed(3),
@@ -654,6 +739,58 @@ mod tests {
                 Consensus::submit_weights(RuntimeOrigin::signed(1), 1, 0, vec![(0, 1)]),
                 Error::<Test>::EpochAlreadyFinalized
             );
+        });
+    }
+
+    #[test]
+    fn collusion_detected_for_identical_vectors() {
+        use sp_neuro_weight::SparseWeights;
+        let v = SparseWeights::new_sorted(vec![(0, 100), (1, 200), (2, 300)]).unwrap();
+        let input = vec![(1, v.clone()), (2, v.clone()), (3, v.clone())];
+        let clusters = detect_collusion_clusters(&input);
+        assert_eq!(clusters.len(), 1);
+        assert_eq!(clusters[0], vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn collusion_not_triggered_for_diverse_vectors() {
+        use sp_neuro_weight::SparseWeights;
+        let a = SparseWeights::new_sorted(vec![(0, 100)]).unwrap();
+        let b = SparseWeights::new_sorted(vec![(1, 100)]).unwrap();
+        let c = SparseWeights::new_sorted(vec![(2, 100)]).unwrap();
+        let input = vec![(1, a), (2, b), (3, c)];
+        let clusters = detect_collusion_clusters(&input);
+        assert!(clusters.is_empty());
+    }
+
+    #[test]
+    fn finalize_applies_collusion_penalty() {
+        new_test_ext().execute_with(|| {
+            // v0, v1 submit identical vectors (colluding); v2 is independent.
+            assert_ok!(Consensus::submit_weights(
+                RuntimeOrigin::signed(1),
+                1,
+                0,
+                vec![(0, 100), (1, 200), (2, 300)]
+            ));
+            assert_ok!(Consensus::submit_weights(
+                RuntimeOrigin::signed(2),
+                1,
+                1,
+                vec![(0, 100), (1, 200), (2, 300)]
+            ));
+            assert_ok!(Consensus::submit_weights(
+                RuntimeOrigin::signed(3),
+                1,
+                2,
+                vec![(5, 1)]
+            ));
+            System::set_block_number(EpochLength::get());
+            assert_ok!(Consensus::finalize_epoch(RuntimeOrigin::signed(1), 1, 0));
+            // Colluders had their reputation reduced relative to the non-colluder
+            let r0 = Consensus::reputation(1, 0);
+            let r2 = Consensus::reputation(1, 2);
+            assert!(r0 < r2 + COLLUSION_PENALTY_PPM);
         });
     }
 
