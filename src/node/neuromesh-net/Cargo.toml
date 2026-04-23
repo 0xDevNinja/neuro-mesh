@@ -1,0 +1,17 @@
+[package]
+name = "neuromesh-net"
+version = "0.1.0"
+authors = ["NeuroMesh Team"]
+edition = "2021"
+license = "MIT"
+description = "libp2p networking layer for NeuroMesh nodes — topic scheme + peer directory"
+
+[dependencies]
+# libp2p itself is intentionally not a hard dep at this stage — the concrete
+# Swarm wiring lands in a follow-up once transport choices stabilize. This
+# crate defines the NeuroMesh-specific topic scheme, protocol identifiers,
+# and an in-memory peer directory used by miner/validator clients and unit
+# tests. Downstream crates can wrap this behind a libp2p `NetworkBehaviour`.
+
+[features]
+default = []
