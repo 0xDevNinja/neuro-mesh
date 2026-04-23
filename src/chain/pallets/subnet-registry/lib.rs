@@ -30,10 +30,11 @@
 //! - `retire_subnet` - Mark a subnet as retired to prevent new registrations
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::too_many_arguments)]
 
 pub use pallet::*;
 
-#[frame_support::pallet]
+#[frame_support::pallet(dev_mode)]
 pub mod pallet {
     use frame_support::{
         pallet_prelude::*,
