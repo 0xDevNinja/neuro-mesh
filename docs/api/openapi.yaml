@@ -1,0 +1,273 @@
+openapi: 3.0.3
+info:
+  title: NeuroMesh Aggregator API
+  version: 0.1.0
+  description: |
+    Public HTTP surface of the NeuroMesh aggregator. Clients submit inference
+    queries against a subnet; the aggregator selects top-k miners by current
+    weight, forwards the request, and aggregates the responses according to
+    an ensemble strategy.
+
+servers:
+  - url: https://api.neuromesh.io
+    description: Public mainnet aggregator
+  - url: https://testnet.api.neuromesh.io
+    description: Public testnet aggregator
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /v1/health:
+    get:
+      operationId: healthCheck
+      summary: Aggregator liveness probe
+      security: []
+      responses:
+        "200":
+          description: Aggregator is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+
+  /v1/subnets/{id}/query:
+    post:
+      operationId: submitQuery
+      summary: Submit an inference request to a subnet
+      parameters:
+        - $ref: "#/components/parameters/SubnetId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QueryRequest"
+      responses:
+        "200":
+          description: Inference response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
+  /v1/subnets/{id}/miners:
+    get:
+      operationId: listMiners
+      summary: List active miners and their current weights
+      parameters:
+        - $ref: "#/components/parameters/SubnetId"
+      responses:
+        "200":
+          description: Miner listing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MinerListing"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /v1/subnets/{id}/status:
+    get:
+      operationId: subnetStatus
+      summary: Subnet health and metrics
+      parameters:
+        - $ref: "#/components/parameters/SubnetId"
+      responses:
+        "200":
+          description: Subnet status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubnetStatus"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-NeuroMesh-Key
+
+  parameters:
+    SubnetId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+
+  schemas:
+    Health:
+      type: object
+      required: [status, version]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, down]
+        version:
+          type: string
+
+    QueryRequest:
+      type: object
+      required: [input]
+      properties:
+        input:
+          type: string
+          description: Opaque task input; schema per subnet in `input_schema`.
+        top_k:
+          type: integer
+          default: 5
+          minimum: 1
+          maximum: 100
+        timeout_ms:
+          type: integer
+          default: 10000
+        ensemble:
+          type: string
+          enum: [majority, weighted_avg, best_of_k]
+          default: weighted_avg
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+
+    QueryResponse:
+      type: object
+      required: [subnet_id, result]
+      properties:
+        subnet_id:
+          type: integer
+        result:
+          type: string
+        ensemble:
+          type: string
+        contributing_miners:
+          type: array
+          items:
+            $ref: "#/components/schemas/MinerResponse"
+
+    MinerResponse:
+      type: object
+      required: [uid, weight]
+      properties:
+        uid:
+          type: integer
+        weight:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        latency_ms:
+          type: integer
+        output:
+          type: string
+
+    MinerListing:
+      type: object
+      required: [subnet_id, epoch, miners]
+      properties:
+        subnet_id:
+          type: integer
+        epoch:
+          type: integer
+        miners:
+          type: array
+          items:
+            type: object
+            required: [uid, endpoint, weight]
+            properties:
+              uid:
+                type: integer
+              endpoint:
+                type: string
+              weight:
+                type: number
+                format: float
+              reputation:
+                type: integer
+
+    SubnetStatus:
+      type: object
+      required: [subnet_id, epoch, health]
+      properties:
+        subnet_id:
+          type: integer
+        epoch:
+          type: integer
+        health:
+          type: string
+          enum: [healthy, degraded, offline]
+        miner_count:
+          type: integer
+        validator_count:
+          type: integer
+        last_finalized_epoch:
+          type: integer
+        last_finalized_block:
+          type: integer
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        request_id:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Malformed request body or parameters
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Subnet does not exist
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    RateLimited:
+      description: Client exceeded its quota; retry after `Retry-After`.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            description: Seconds until the next request is accepted.
+        X-RateLimit-Limit:
+          schema: { type: integer }
+        X-RateLimit-Remaining:
+          schema: { type: integer }
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unavailable:
+      description: No miners reachable for this subnet
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
