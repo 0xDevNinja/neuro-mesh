@@ -2,6 +2,7 @@
 members = [
     "src/chain/pallets/subnet-registry",
     "src/chain/primitives/sp-neuro-core",
+    "src/chain/primitives/sp-neuro-weight",
 ]
 
 resolver = "2"
