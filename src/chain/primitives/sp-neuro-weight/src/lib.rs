@@ -15,6 +15,57 @@ use scale_info::TypeInfo;
 /// One entry in a sparse weight vector: `(miner_uid, weight)`.
 pub type WeightEntry = (u32, u16);
 
+/// Fixed-point scale used for `cosine_similarity`. A value of `COSINE_SCALE`
+/// means perfect agreement; `0` means orthogonal or undefined.
+pub const COSINE_SCALE: u32 = 1_000_000;
+
+fn cosine_dot(a: &[WeightEntry], b: &[WeightEntry]) -> u128 {
+    let mut i = 0usize;
+    let mut j = 0usize;
+    let mut acc: u128 = 0;
+    while i < a.len() && j < b.len() {
+        let (ui, wi) = a[i];
+        let (uj, wj) = b[j];
+        match ui.cmp(&uj) {
+            core::cmp::Ordering::Equal => {
+                acc = acc.saturating_add((wi as u128).saturating_mul(wj as u128));
+                i += 1;
+                j += 1;
+            }
+            core::cmp::Ordering::Less => i += 1,
+            core::cmp::Ordering::Greater => j += 1,
+        }
+    }
+    acc
+}
+
+fn norm_sq(a: &[WeightEntry]) -> u128 {
+    a.iter()
+        .map(|(_, w)| (*w as u128) * (*w as u128))
+        .fold(0u128, |acc, x| acc.saturating_add(x))
+}
+
+fn integer_sqrt(x: u128) -> u128 {
+    if x < 2 {
+        return x;
+    }
+    let mut lo: u128 = 1;
+    let mut hi: u128 = x;
+    while lo < hi {
+        let mid = lo + (hi - lo) / 2;
+        if let Some(sq) = mid.checked_mul(mid) {
+            if sq <= x {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        } else {
+            hi = mid;
+        }
+    }
+    lo - 1
+}
+
 /// Sparse weight vector. Entries MUST be sorted ascending by `uid` with no
 /// duplicates — `new_sorted` enforces this.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Encode, Decode, TypeInfo)]
@@ -134,6 +185,28 @@ impl SparseWeights {
             entries.push((cursor as u32, *w));
         }
         SparseWeights::new_sorted(entries)
+    }
+
+    /// Cosine similarity in `u32` space, scaled to `[0, COSINE_SCALE]`.
+    /// Returns 0 for zero-norm inputs.
+    pub fn cosine_similarity(&self, other: &SparseWeights) -> u32 {
+        let dot = cosine_dot(&self.entries, &other.entries);
+        let na = norm_sq(&self.entries);
+        let nb = norm_sq(&other.entries);
+        if na == 0 || nb == 0 {
+            return 0;
+        }
+        // similarity = dot / sqrt(na * nb); scale to COSINE_SCALE
+        let denom = integer_sqrt(na.saturating_mul(nb));
+        if denom == 0 {
+            return 0;
+        }
+        let scaled = (dot.saturating_mul(COSINE_SCALE as u128)) / denom;
+        if scaled > COSINE_SCALE as u128 {
+            COSINE_SCALE
+        } else {
+            scaled as u32
+        }
     }
 
     /// Weighted average of multiple vectors, using `validator_weights` as
@@ -258,6 +331,44 @@ mod tests {
         // Give validator b 10x multiplier
         let agg = SparseWeights::aggregate(&[(&a, 1), (&b, 10)]);
         assert_eq!(agg.entries().iter().max_by_key(|(_, w)| *w).unwrap().0, 1);
+    }
+
+    #[test]
+    fn cosine_identical_vectors() {
+        let a = sw(&[(0, 10), (1, 20), (2, 30)]);
+        assert_eq!(a.cosine_similarity(&a), COSINE_SCALE);
+    }
+
+    #[test]
+    fn cosine_orthogonal_zero() {
+        let a = sw(&[(0, 10)]);
+        let b = sw(&[(1, 10)]);
+        assert_eq!(a.cosine_similarity(&b), 0);
+    }
+
+    #[test]
+    fn cosine_zero_for_empty_vector() {
+        let a = sw(&[(0, 10)]);
+        let empty = SparseWeights::default();
+        assert_eq!(a.cosine_similarity(&empty), 0);
+        assert_eq!(empty.cosine_similarity(&a), 0);
+    }
+
+    #[test]
+    fn cosine_partial_overlap_between_0_and_scale() {
+        let a = sw(&[(0, 10), (1, 10)]);
+        let b = sw(&[(1, 10), (2, 10)]);
+        let sim = a.cosine_similarity(&b);
+        assert!(sim > 0 && sim < COSINE_SCALE);
+    }
+
+    #[test]
+    fn integer_sqrt_works() {
+        assert_eq!(integer_sqrt(0), 0);
+        assert_eq!(integer_sqrt(1), 1);
+        assert_eq!(integer_sqrt(4), 2);
+        assert_eq!(integer_sqrt(99), 9);
+        assert_eq!(integer_sqrt(100), 10);
     }
 
     #[test]
