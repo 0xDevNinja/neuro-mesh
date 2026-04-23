@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "src/chain/pallets/registry",
     "src/chain/pallets/subnet-registry",
     "src/chain/primitives/sp-neuro-core",
 ]
